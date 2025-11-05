@@ -1,0 +1,76 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Prisma
+prisma/migrations/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+*.temp
+*.7z
+*.zip
+
+# Backend specific
+backend/dist/
+backend/node_modules/
+backend/ngrok/
+backend/ngrok.zip
+backend/prisma/dev.db
+
+# Frontend specific
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+
+# Images and documents (if you want to exclude)
+*.jpg
+*.jpeg
+*.png
+*.pdf
+
+# Generated files
+*.generated.*
+

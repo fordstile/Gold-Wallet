@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: gold-wallet-backend
+    env: node
+    plan: free
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3002
+      # Add your environment variables in Render dashboard
+      # DATABASE_URL
+      # JWT_SECRET
+      # MPESA_CONSUMER_KEY
+      # MPESA_CONSUMER_SECRET
+      # MPESA_SHORTCODE
+      # MPESA_PASSKEY
+      # MPESA_CALLBACK_URL
+      # MPESA_ENVIRONMENT
+      # ALLOWED_ORIGINS
+
