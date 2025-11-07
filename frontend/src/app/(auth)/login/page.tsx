@@ -43,8 +43,9 @@ export default function LoginPage() {
       } else {
         window.location.href = "/dashboard";
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Login failed";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -106,7 +107,7 @@ export default function LoginPage() {
       </form>
 
       <p className="text-center text-sm text-gray-600">
-        Don't have an account?{" "}
+        Don&apos;t have an account?{" "}
         <a className="font-medium text-yellow-600 hover:text-yellow-500" href="/register">
           Create one
         </a>

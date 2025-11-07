@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, fetchWithAuth } from '@/lib/api';
 
@@ -40,6 +40,38 @@ interface Payout {
   };
 }
 
+type StatsResponse = {
+  totalPools?: number;
+  total?: number;
+  totalGold?: number | string | null;
+  totalGoldGrams?: number | string | null;
+  availableGold?: number | string | null;
+  availableGoldGrams?: number | string | null;
+  allocatedGold?: number | string | null;
+  allocatedGoldGrams?: number | string | null;
+};
+
+type PoolResponse = {
+  id: string;
+  name: string;
+  totalGrams?: number | string | null;
+  total_grams?: number | string | null;
+  availableGrams?: number | string | null;
+  available_grams?: number | string | null;
+  purity?: string | null;
+  createdAt?: string | null;
+  created_at?: string | null;
+};
+
+type PriceResponse = {
+  id: string;
+  buyPricePerGram: number | string;
+  sellPricePerGram: number | string;
+  effectiveFrom: string;
+};
+
+type PayoutResponse = Payout;
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
@@ -55,6 +87,88 @@ export default function AdminDashboard() {
   const [poolForm, setPoolForm] = useState({ name: '', totalGrams: '', purity: '24k' });
   const [priceForm, setPriceForm] = useState({ buyPricePerGram: '', sellPricePerGram: '' });
 
+  const fetchStats = useCallback(async () => {
+    try {
+      const data = (await fetchWithAuth(api.admin.stats)) as StatsResponse;
+      const normalized: Stats = {
+        totalPools: data?.totalPools ?? data?.total ?? 0,
+        totalGoldGrams: Number(data?.totalGold ?? data?.totalGoldGrams ?? 0),
+        availableGoldGrams: Number(data?.availableGold ?? data?.availableGoldGrams ?? 0),
+        allocatedGoldGrams: Number(data?.allocatedGold ?? data?.allocatedGoldGrams ?? 0),
+      };
+      setStats(normalized);
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  }, []);
+
+  const fetchPools = useCallback(async () => {
+    try {
+      const data = (await fetchWithAuth(api.admin.pools)) as PoolResponse[] | undefined;
+      const normalized: Pool[] = Array.isArray(data)
+        ? data.map((pool) => ({
+            id: pool.id,
+            name: pool.name,
+            totalGrams: Number(pool.totalGrams ?? pool.total_grams ?? 0),
+            availableGrams: Number(pool.availableGrams ?? pool.available_grams ?? 0),
+            purity: pool.purity ?? '24k',
+            createdAt: pool.createdAt ?? pool.created_at ?? '',
+          }))
+        : [];
+      setPools(normalized);
+    } catch (error) {
+      console.error('Error fetching pools:', error);
+    }
+  }, []);
+
+  const fetchCurrentPrice = useCallback(async () => {
+    try {
+      const res = await fetch(api.admin.price);
+      if (res.ok) {
+        const priceData = (await res.json()) as PriceResponse;
+        setCurrentPrice({
+          id: priceData.id,
+          buyPricePerGram: Number(priceData.buyPricePerGram),
+          sellPricePerGram: Number(priceData.sellPricePerGram),
+          effectiveFrom: priceData.effectiveFrom,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching price:', error);
+    }
+  }, []);
+
+  const fetchPayouts = useCallback(async () => {
+    try {
+      const data = (await fetchWithAuth(`${api.admin.payouts}/pending`)) as PayoutResponse[] | undefined;
+      if (Array.isArray(data)) {
+        const normalized = data.map((payout) => ({
+          ...payout,
+          amountKes: Number(payout.amountKes),
+        }));
+        setPayouts(normalized);
+      } else {
+        setPayouts([]);
+      }
+    } catch (error) {
+      console.error('Error fetching payouts:', error);
+    }
+  }, []);
+
+  const fetchAllData = useCallback(async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchStats(),
+        fetchPools(),
+        fetchCurrentPrice(),
+        fetchPayouts(),
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchStats, fetchPools, fetchCurrentPrice, fetchPayouts]);
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -62,75 +176,8 @@ export default function AdminDashboard() {
       return;
     }
 
-    fetchAllData(token);
-  }, [router]);
-
-  const fetchAllData = async (token: string) => {
-    setLoading(true);
-    try {
-      await Promise.all([
-        fetchStats(token),
-        fetchPools(token),
-        fetchCurrentPrice(token),
-        fetchPayouts(token)
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  async function fetchStats(token: string) {
-    try {
-      const data = await fetchWithAuth(api.admin.stats);
-      const normalized: Stats = {
-        totalPools: data.totalPools ?? data.total ?? 0,
-        totalGoldGrams: Number(data.totalGold ?? data.totalGoldGrams ?? 0),
-        availableGoldGrams: Number(data.availableGold ?? data.availableGoldGrams ?? 0),
-        allocatedGoldGrams: Number(data.allocatedGold ?? data.allocatedGoldGrams ?? 0),
-      };
-      setStats(normalized);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  }
-
-  async function fetchPools(token: string) {
-    try {
-      const data = await fetchWithAuth(api.admin.pools);
-      const normalized: Pool[] = (data || []).map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        totalGrams: Number(p.totalGrams ?? p.total_grams ?? 0),
-        availableGrams: Number(p.availableGrams ?? p.available_grams ?? 0),
-        purity: p.purity ?? '24k',
-        createdAt: p.createdAt ?? p.created_at ?? '',
-      }));
-      setPools(normalized);
-    } catch (error) {
-      console.error('Error fetching pools:', error);
-    }
-  }
-
-  async function fetchCurrentPrice(_token: string) {
-    try {
-      const res = await fetch(api.admin.price);
-      if (res.ok) {
-        const data = await res.json();
-        setCurrentPrice(data);
-      }
-    } catch (error) {
-      console.error('Error fetching price:', error);
-    }
-  }
-
-  async function fetchPayouts(_token: string) {
-    try {
-      const data = await fetchWithAuth(`${api.admin.payouts}/pending`);
-      setPayouts(data);
-    } catch (error) {
-      console.error('Error fetching payouts:', error);
-    }
-  }
+    void fetchAllData();
+  }, [router, fetchAllData]);
 
   const handleApprovePayout = async (payoutId: string) => {
     const token = localStorage.getItem('token');
@@ -147,7 +194,7 @@ export default function AdminDashboard() {
       if (res.ok) {
         const result = await res.json();
         alert(`✅ ${result.message}`);
-        fetchPayouts(token);
+        await fetchPayouts();
       } else {
         const error = await res.json();
         alert(`❌ Error: ${error.message || 'Failed to approve payout'}`);
@@ -173,7 +220,7 @@ export default function AdminDashboard() {
       if (res.ok) {
         const result = await res.json();
         alert(`✅ ${result.message}`);
-        fetchPayouts(token);
+        await fetchPayouts();
       } else {
         const error = await res.json();
         alert(`❌ Error: ${error.message || 'Failed to reject payout'}`);
@@ -206,7 +253,7 @@ export default function AdminDashboard() {
       if (res.ok) {
         setShowCreatePool(false);
         setPoolForm({ name: '', totalGrams: '', purity: '24k' });
-        fetchAllData(token);
+        await fetchAllData();
         alert('Pool created successfully!');
       } else {
         const error = await res.json();
@@ -239,7 +286,7 @@ export default function AdminDashboard() {
       if (res.ok) {
         setShowSetPrice(false);
         setPriceForm({ buyPricePerGram: '', sellPricePerGram: '' });
-        fetchAllData(token);
+        await fetchAllData();
         alert('Price updated successfully!');
       } else {
         const error = await res.json();
@@ -616,9 +663,9 @@ export default function AdminDashboard() {
             <h3 className="font-bold text-blue-900 mb-2">ℹ️ Payout Instructions</h3>
             <ul className="text-sm text-blue-800 space-y-1">
               <li>• <strong>Approve:</strong> Processes the M-Pesa payout and completes the transaction</li>
-              <li>• <strong>Reject:</strong> Cancels the payout and unlocks the user's gold</li>
+              <li>• <strong>Reject:</strong> Cancels the payout and unlocks the user&apos;s gold</li>
               <li>• Verify the phone number before approving payouts</li>
-              <li>• Once approved, the gold is removed from the user's balance</li>
+              <li>• Once approved, the gold is removed from the user&apos;s balance</li>
             </ul>
           </div>
         </div>

@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api, fetchWithAuth } from "@/lib/api";
 
@@ -28,6 +28,36 @@ interface LedgerEntry {
   createdAt: string;
 }
 
+type UserResponse = {
+  email?: string;
+  isAdmin?: boolean;
+};
+
+type BalanceResponse = {
+  grams: number | string;
+  lockedGrams: number | string;
+  availableGrams: number | string;
+};
+
+type PriceResponse = {
+  id: string;
+  buyPricePerGram: number | string;
+  sellPricePerGram: number | string;
+  effectiveFrom: string;
+};
+
+type LedgerEntryResponse = {
+  id: string;
+  type: string;
+  grams: number | string;
+  pricePerGram: number | string;
+  totalKes: number | string;
+  status: string;
+  poolId: string | null;
+  reference: string | null;
+  createdAt: string;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<{ email: string; isAdmin?: boolean } | null>(null);
@@ -45,88 +75,63 @@ export default function DashboardPage() {
   const [buyLoading, setBuyLoading] = useState(false);
   const [sellLoading, setSellLoading] = useState(false);
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-
-    fetchAllData(token);
-  }, [router]);
-
-  const fetchAllData = async (token: string) => {
-    setLoading(true);
+  const fetchUserData = useCallback(async () => {
     try {
-      await Promise.all([
-        fetchUserData(token),
-        fetchBalance(token),
-        fetchCurrentPrice(),
-        fetchRecentTransactions(token)
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUserData = async (token: string) => {
-    try {
-      const data = await fetchWithAuth(api.user.me);
+      const data = (await fetchWithAuth(api.user.me)) as UserResponse | null;
       if (data?.email) {
-        setUser(data);
+        setUser({ email: data.email, isAdmin: data.isAdmin });
       } else {
         localStorage.removeItem("token");
         router.push("/login");
       }
-    } catch (err) {
-      console.error("Error fetching user data:", err);
+    } catch (error) {
+      console.error("Error fetching user data:", error);
       localStorage.removeItem("token");
       router.push("/login");
     }
-  };
+  }, [router]);
 
-  const fetchBalance = async (token: string) => {
+  const fetchBalance = useCallback(async () => {
     setBalanceLoading(true);
     try {
-      const data = await fetchWithAuth(api.user.balance);
-        // Convert string values to numbers
-        setBalance({
-          grams: Number(data.grams),
-          lockedGrams: Number(data.lockedGrams),
-          availableGrams: Number(data.availableGrams),
-        });
-    } catch (err) {
-      console.error("Error fetching balance:", err);
+      const data = (await fetchWithAuth(api.user.balance)) as BalanceResponse;
+      setBalance({
+        grams: Number(data?.grams ?? 0),
+        lockedGrams: Number(data?.lockedGrams ?? 0),
+        availableGrams: Number(data?.availableGrams ?? 0),
+      });
+    } catch (error) {
+      console.error("Error fetching balance:", error);
     } finally {
       setBalanceLoading(false);
     }
-  };
+  }, []);
 
-  const fetchCurrentPrice = async () => {
+  const fetchCurrentPrice = useCallback(async () => {
     setPriceLoading(true);
     try {
-      const data = await fetch(api.admin.price).then(res => res.ok ? res.json() : null);
-      if (data) {
-        // Convert price values to numbers
+      const res = await fetch(api.admin.price);
+      if (res.ok) {
+        const priceData = (await res.json()) as PriceResponse;
         setCurrentPrice({
-          id: data.id,
-          buyPricePerGram: Number(data.buyPricePerGram),
-          sellPricePerGram: Number(data.sellPricePerGram),
-          effectiveFrom: data.effectiveFrom,
+          id: priceData.id,
+          buyPricePerGram: Number(priceData.buyPricePerGram),
+          sellPricePerGram: Number(priceData.sellPricePerGram),
+          effectiveFrom: priceData.effectiveFrom,
         });
       }
-    } catch (err) {
-      console.error("Error fetching price:", err);
+    } catch (error) {
+      console.error("Error fetching price:", error);
     } finally {
       setPriceLoading(false);
     }
-  };
+  }, []);
 
-  const fetchRecentTransactions = async (token: string) => {
+  const fetchRecentTransactions = useCallback(async () => {
     try {
-      const data = await fetchWithAuth(`${api.user.ledger}?limit=10`);
-        // Convert transaction data to proper types
-        setRecentTransactions(data.map((tx: any) => ({
+      const data = (await fetchWithAuth(`${api.user.ledger}?limit=10`)) as LedgerEntryResponse[] | undefined;
+      if (Array.isArray(data)) {
+        const normalized = data.map((tx) => ({
           id: tx.id,
           type: tx.type,
           grams: Number(tx.grams),
@@ -136,11 +141,39 @@ export default function DashboardPage() {
           poolId: tx.poolId,
           reference: tx.reference,
           createdAt: tx.createdAt,
-        })));
-    } catch (err) {
-      console.error("Error fetching transactions:", err);
+        }));
+        setRecentTransactions(normalized);
+      } else {
+        setRecentTransactions([]);
+      }
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
     }
-  };
+  }, []);
+
+  const fetchAllData = useCallback(async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchUserData(),
+        fetchBalance(),
+        fetchCurrentPrice(),
+        fetchRecentTransactions(),
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchUserData, fetchBalance, fetchCurrentPrice, fetchRecentTransactions]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
+    void fetchAllData();
+  }, [router, fetchAllData]);
 
   function handleLogout() {
     localStorage.removeItem("token");
@@ -189,10 +222,11 @@ export default function DashboardPage() {
       
       setBuyKes("");
       // Refresh data
-      await fetchAllData(token);
-    } catch (error: any) {
+      await fetchAllData();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Buy failed";
       console.error("Buy error:", error);
-      alert(`❌ Buy failed: ${error.message}`);
+      alert(`❌ Buy failed: ${message}`);
     } finally {
       setBuyLoading(false);
     }
@@ -236,10 +270,11 @@ export default function DashboardPage() {
       
       setSellGrams("");
       // Refresh data
-      await fetchAllData(token);
-    } catch (error: any) {
+      await fetchAllData();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Sell failed";
       console.error("Sell error:", error);
-      alert(`❌ Sell failed: ${error.message}`);
+      alert(`❌ Sell failed: ${message}`);
     } finally {
       setSellLoading(false);
     }
