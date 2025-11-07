@@ -79,7 +79,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const fetchStats = async (_token: string) => {
+  async function fetchStats(token: string) {
     try {
       const data = await fetchWithAuth(api.admin.stats);
       const normalized: Stats = {
@@ -92,9 +92,9 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
-  };
+  }
 
-  const fetchPools = async (_token: string) => {
+  async function fetchPools(token: string) {
     try {
       const data = await fetchWithAuth(api.admin.pools);
       const normalized: Pool[] = (data || []).map((p: any) => ({
@@ -109,7 +109,7 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error fetching pools:', error);
     }
-  };
+  }
 
   const fetchCurrentPrice = async (token: string) => {
     try {
