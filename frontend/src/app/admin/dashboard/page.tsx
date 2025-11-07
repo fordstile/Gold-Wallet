@@ -79,36 +79,33 @@ export default function AdminDashboard() {
     }
   };
 
-  const fetchStats = async (token: string) => {
+  const fetchStats = async (_token: string) => {
     try {
       const data = await fetchWithAuth(api.admin.stats);
-      // Normalize keys from backend to UI shape
-      const normalized = {
+      const normalized: Stats = {
         totalPools: data.totalPools ?? data.total ?? 0,
         totalGoldGrams: Number(data.totalGold ?? data.totalGoldGrams ?? 0),
         availableGoldGrams: Number(data.availableGold ?? data.availableGoldGrams ?? 0),
         allocatedGoldGrams: Number(data.allocatedGold ?? data.allocatedGoldGrams ?? 0),
-      } as Stats;
+      };
       setStats(normalized);
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
   };
 
-  const fetchPools = async (token: string) => {
+  const fetchPools = async (_token: string) => {
     try {
       const data = await fetchWithAuth(api.admin.pools);
-      // Ensure numeric types to avoid .toFixed errors
       const normalized: Pool[] = (data || []).map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          totalGrams: Number(p.totalGrams ?? p.total_grams ?? 0),
-          availableGrams: Number(p.availableGrams ?? p.available_grams ?? 0),
-          purity: p.purity ?? '24k',
-          createdAt: p.createdAt ?? p.created_at ?? '',
-        }));
-        setPools(normalized);
-      }
+        id: p.id,
+        name: p.name,
+        totalGrams: Number(p.totalGrams ?? p.total_grams ?? 0),
+        availableGrams: Number(p.availableGrams ?? p.available_grams ?? 0),
+        purity: p.purity ?? '24k',
+        createdAt: p.createdAt ?? p.created_at ?? '',
+      }));
+      setPools(normalized);
     } catch (error) {
       console.error('Error fetching pools:', error);
     }
