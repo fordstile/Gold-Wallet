@@ -111,7 +111,7 @@ export default function AdminDashboard() {
     }
   }
 
-  const fetchCurrentPrice = async (token: string) => {
+  async function fetchCurrentPrice(_token: string) {
     try {
       const res = await fetch(api.admin.price);
       if (res.ok) {
@@ -121,16 +121,16 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error fetching price:', error);
     }
-  };
+  }
 
-  const fetchPayouts = async (token: string) => {
+  async function fetchPayouts(_token: string) {
     try {
       const data = await fetchWithAuth(`${api.admin.payouts}/pending`);
       setPayouts(data);
     } catch (error) {
       console.error('Error fetching payouts:', error);
     }
-  };
+  }
 
   const handleApprovePayout = async (payoutId: string) => {
     const token = localStorage.getItem('token');
